@@ -10,6 +10,7 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve
 # from bvp_ode import *
 import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
 
 u = lambda x: 0.5 * (2.0 + np.exp(2.0 - x) - np.exp(x))
 
@@ -24,41 +25,47 @@ def gildi(lamb):
     
     return [p, q, f, a0, a1, a2]
 
-def fdm(h, ax, bx, ay, by, g1, g2, g3, g4, f):
-    N = (bx-ax)/h; M = (by-ay)/h;    
-    m = int(M+1); n = int(N+1); mn = m*n
-    x = np.linspace(ax+h, bx-h, N)
-    y = np.linspace(ay+h, by-h, M)
+# Program 8.5 Finite difference solver for 2D Poisson equation
+# with Dirichlet boundary conditions on a rectangle
+# Input: rectangle domain [xl,xr]x[yb,yt] with MxN space steps
+# Output: matrix w holding solution values
+def fdm(h, xl, xr, yb, yt, g1, g2, g3, g4, f):
+    N = int((xr-xl)/h); M = int((yt-yb)/h); 
+    m = M+1; n = N+1; mn = m*n
+    x = np.linspace(xl, xr, n)
+    y = np.linspace(yb, yt, m)
     A = np.zeros((mn,mn))
     b = np.zeros(mn)
     for i in range(1,m-1):
         for j in range(1,m-1):
-            A[i+(j-1)*m, i-1+(j-1)*m] = 1/h**2
-            A[i+(j-1)*m, i+1+(j-1)*m] = 1/h**2
-            A[i+(j-1)*m, i+(j-1)*m] = -2/h**2-2/h**2
-            A[i+(j-1)*m, i+(j-2)*m] = 1/h**2
-            A[i+(j-1)*m, i+j*m] = 1/h**2
-            b[i+(j-1)*m] = f(x[i], y[j])
-    for i in range(m-1):          # bottom and top boundary points
-        j = 1
-        A[i+(j-1)*m, i+(j-1)*m] = 1
-        b[i+(j-1)*m] = g1(x[i])
-        j = n
-        A[i+(j-1)*m, i+(j-1)*m] = 1
-        b[i+(j-1)*m] = g2(x[i])
+            A[i+j*m, i-1+j*m] = 1/h**2
+            A[i+j*m, i+1+j*m] = 1/h**2
+            A[i+j*m, i+j*m] = -2/h**2-2/h**2
+            A[i+j*m, i+(j-1)*m] = 1/h**2
+            A[i+j*m, i+(j+1)*m] = 1/h**2
+            b[i+j*m] = f(x[i], y[j])
+    for i in range(m):          # bottom and top boundary points
+        j = 0
+        A[i+j*m, i+j*m] = 1
+        b[i+j*m] = g1(x[i])
+        j = n-1
+        A[i+j*m, i+j*m] = 1
+        b[i+j*m] = g2(x[i])
     for j in range(1,n-1):  	# left and right boundary points
-        i=1
-        A[i+(j-1)*m, i+(j-1)*m] = 1
-        b[i+(j-1)*m] = g3(y[j])
-        i = m
-        A[i+(j-1)*m, i+(j-1)*m] = 1
-        b[i+(j-1)*m] = g4(y[j])
-    
-    print(A)
-    print(b)
+        i = 0
+        A[i+j*m, i+j*m] = 1
+        b[i+j*m] = g3(y[j])
+        i = m-1
+        A[i+j*m, i+j*m] = 1
+        b[i+j*m] = g4(y[j])
     c = spsolve(A,b)    # solve for solution in u labeling
-    w = c.reshape(m, n);     # translate from u to w
-    plt.contourf(x,y,w)
+    w = c.reshape(m, n)     # translate from u to w
+#    plt.contourf(x,y,w)
+    X,Y = np.meshgrid(x,y)
+    ax = plt.axes(projection='3d')
+    ax.plot_surface(X, Y, w, rstride=1, cstride=1,
+                    cmap='viridis', edgecolor='none')
+    ax.set_title('surface');
     return c
 
 # =============================================================================
@@ -75,14 +82,14 @@ def fdm(h, ax, bx, ay, by, g1, g2, g3, g4, f):
 
 #N = 6
 
-ax = 0; bx = 1; ay = 0; by = 1
-h = 0.5
-g1 = lambda x: np.sin(np.pi*x)
-g2 = lambda x: np.sin(np.pi*x)
-g3 = lambda y: 0.0*y
-g4 = lambda y: 0.0*y
+xl = 0; xr = 1; yb = 1; yt = 2 
+h = 0.1
+g1 = lambda x: np.log(x**2+1)
+g2 = lambda x: np.log(x**2+4)
+g3 = lambda y: 2*np.log(y)
+g4 = lambda y: np.log(y**2+1)
 f  = lambda x,y: 0.0*x+0.0*y
 
-fdm(h, ax, bx, ay, by, g1, g2, g3, g4, f)
+fdm(h, xl, xr, yb, yt, g1, g2, g3, g4, f)
 
 
